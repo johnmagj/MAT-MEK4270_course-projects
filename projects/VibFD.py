@@ -11,6 +11,8 @@ We use various boundary conditions.
 import numpy as np
 import sympy as sp
 
+from scipy.sparse import diags_array
+
 t = sp.Symbol("t")
 
 
@@ -163,6 +165,23 @@ class VibFD2(VibSolver):
 
     def __call__(self) -> np.ndarray:
         u = np.zeros(self.Nt + 1)
+        g = 2 - self.w**2*self.dt**2
+
+        A = sp.sparse.diags_array([1, -g, 1], offsets=[-1,0,1], shape=(self.Nt+1,self.Nt+1)).toarray()
+        # Fix first and last row of the matrix
+        A[0,0] = 1.0
+        A[0,1] = 0.0
+        A[-1,-1] = 1.0
+        A[-1,-2] = 0.0
+
+        b = np.zeros(N+1)
+        # Set the boundary conditions
+        b[0] = self.I
+        b[-1] = self.I
+
+        A = sp.sparse.csr_matrix(A)         # turn A into CSR-format for efficiency with spsolve
+        u = sp.sparse.linalg.spsolve(A, b)  # solving the system
+
         return u
 
 
@@ -185,6 +204,24 @@ class VibFD3(VibSolver):
 
     def __call__(self) -> np.ndarray:
         u = np.zeros(self.Nt + 1)
+        g = 2 - self.w**2*self.dt**2
+
+        A = sp.sparse.diags_array([1, -g, 1], offsets=[-1,0,1], shape=(self.Nt+1,self.Nt+1)).toarray()
+        # Fix first and last row of the matrix
+        # The BC u(T)=0 effectively mean the value on either side of u(T) (u(T+dt) and u(T-dt)) must be the same
+        A[0,0] = 1.0
+        A[0,1] = 0.0
+        A[-1,-1] = -g
+        A[-1,-2] = 2.0
+
+        b = np.zeros(N+1)
+        # Set the boundary conditions
+        b[0] = self.I
+        b[-1] = 0
+
+        A = sp.sparse.csr_matrix(A)         # turn A into CSR-format for efficiency with spsolve
+        u = sp.sparse.linalg.spsolve(A, b)  # solving the system
+
         return u
 
 
