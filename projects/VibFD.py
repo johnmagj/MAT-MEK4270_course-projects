@@ -174,7 +174,7 @@ class VibFD2(VibSolver):
         A[-1,-1] = 1.0
         A[-1,-2] = 0.0
 
-        b = np.zeros(N+1)
+        b = np.zeros(self.Nt+1)
         # Set the boundary conditions
         b[0] = self.I
         b[-1] = self.I
@@ -214,7 +214,7 @@ class VibFD3(VibSolver):
         A[-1,-1] = -g
         A[-1,-2] = 2.0
 
-        b = np.zeros(N+1)
+        b = np.zeros(self.Nt+1)
         # Set the boundary conditions
         b[0] = self.I
         b[-1] = 0
@@ -238,6 +238,20 @@ class VibFD4(VibFD2):
 
     def __call__(self) -> np.ndarray:
         u = np.zeros(self.Nt + 1)
+        g1 = 30 - 12*self.w**2*self.dt**2
+        g2 = 15 - 12*self.w**2*self.dt**2
+
+        A = sp.sparse.diags_array([-1, 16, -g1, 16, -1], offsets=[-2, -1, 0, 1, 2], shape=(self.Nt+1,self.Nt+1)).toarray()
+
+        A[0,0] = self.I
+        A[0,1:] = 0.0
+
+        A[1, 0:6] = 10, -g1, -4, 14, -6, 1
+        A[-2, -1:-7:-1] = 10, -g2, -4, 14, -6, 1
+
+        A[-1,-1] = self.I
+        A[-1, -2::-1] = 0.0
+
         return u
 
 
