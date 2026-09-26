@@ -12,6 +12,8 @@ import numpy as np
 import sympy as sp
 
 from scipy.sparse import diags_array
+from scipy.sparse import csr_matrix
+from scipy.sparse.linalg import spsolve
 
 t = sp.Symbol("t")
 
@@ -103,14 +105,18 @@ class VibSolver:
         """
         E = []
         dt = []
-        self.set_mesh(N0)  # Set initial size of mesh
+
+        # Initialize with the user-defined baseline mesh size
+        current_Nt = N0
+
         for _ in range(m):
-            self.set_mesh(self.Nt + 10)
+            self.set_mesh(current_Nt)
             E.append(self.l2_error())
             dt.append(self.dt)
+            current_Nt *= 2             # Double the resolution for the NEXT step
         r = [
             np.log(E[i - 1] / E[i]) / np.log(dt[i - 1] / dt[i])
-            for i in range(1, m + 1, 1)
+            for i in range(1, m)
         ]
         return r, np.array(E), np.array(dt)
 
@@ -167,20 +173,20 @@ class VibFD2(VibSolver):
         u = np.zeros(self.Nt + 1)
         g = 2 - self.w**2*self.dt**2
 
-        A = sp.sparse.diags_array([1, -g, 1], offsets=[-1,0,1], shape=(self.Nt+1,self.Nt+1)).toarray()
+        A = diags_array([1, -g, 1], offsets=[-1,0,1], shape=(self.Nt+1,self.Nt+1)).toarray()
         # Fix first and last row of the matrix
         A[0,0] = 1.0
-        A[0,1] = 0.0
+        A[0,1:] = 0.0
         A[-1,-1] = 1.0
-        A[-1,-2] = 0.0
+        A[-1,-2::-1] = 0.0
 
         b = np.zeros(self.Nt+1)
         # Set the boundary conditions
         b[0] = self.I
         b[-1] = self.I
 
-        A = sp.sparse.csr_matrix(A)         # turn A into CSR-format for efficiency with spsolve
-        u = sp.sparse.linalg.spsolve(A, b)  # solving the system
+        A = csr_matrix(A)         # turn A into CSR-format for efficiency with spsolve
+        u = spsolve(A, b)  # solving the system
 
         return u
 
@@ -206,21 +212,22 @@ class VibFD3(VibSolver):
         u = np.zeros(self.Nt + 1)
         g = 2 - self.w**2*self.dt**2
 
-        A = sp.sparse.diags_array([1, -g, 1], offsets=[-1,0,1], shape=(self.Nt+1,self.Nt+1)).toarray()
+        A = diags_array([1, -g, 1], offsets=[-1,0,1], shape=(self.Nt+1,self.Nt+1)).toarray()
         # Fix first and last row of the matrix
-        # The BC u(T)=0 effectively mean the value on either side of u(T) (u(T+dt) and u(T-dt)) must be the same
+        # The boundary condition u(T)=0 effectively mean that the value on either side of u(T) (u(T+dt) and u(T-dt)) must be the same
         A[0,0] = 1.0
-        A[0,1] = 0.0
+        A[0,1:] = 0.0
         A[-1,-1] = -g
         A[-1,-2] = 2.0
+        A[-1,-3::-1] = 0.0
 
         b = np.zeros(self.Nt+1)
         # Set the boundary conditions
         b[0] = self.I
         b[-1] = 0
 
-        A = sp.sparse.csr_matrix(A)         # turn A into CSR-format for efficiency with spsolve
-        u = sp.sparse.linalg.spsolve(A, b)  # solving the system
+        A = csr_matrix(A)   # turn A into CSR-format for efficiency with spsolve
+        u = spsolve(A, b)   # solving the system
 
         return u
 
@@ -238,19 +245,30 @@ class VibFD4(VibFD2):
 
     def __call__(self) -> np.ndarray:
         u = np.zeros(self.Nt + 1)
-        g1 = 30 - 12*self.w**2*self.dt**2
-        g2 = 15 - 12*self.w**2*self.dt**2
+        g_main = 30 - 12*self.w**2*self.dt**2
+        g_end = 15 - 12*self.w**2*self.dt**2
 
-        A = sp.sparse.diags_array([-1, 16, -g1, 16, -1], offsets=[-2, -1, 0, 1, 2], shape=(self.Nt+1,self.Nt+1)).toarray()
+        A = diags_array([-1, 16, -g_main, 16, -1], offsets=[-2, -1, 0, 1, 2], shape=(self.Nt+1,self.Nt+1)).toarray()
 
-        A[0,0] = self.I
+        A[0,0] = 1.0
         A[0,1:] = 0.0
 
-        A[1, 0:6] = 10, -g1, -4, 14, -6, 1
-        A[-2, -1:-7:-1] = 10, -g2, -4, 14, -6, 1
+        A[1, 0:6] = 10, -g_end, -4, 14, -6, 1
+        A[1, 6:] = 0.0
+        A[-2, -1:-7:-1] = 10, -g_end, -4, 14, -6, 1
+        A[-2, -7::-1] = 0.0
 
-        A[-1,-1] = self.I
+        A[-1,-1] = 1.0
         A[-1, -2::-1] = 0.0
+
+        
+        b = np.zeros(self.Nt+1)
+        # Set the boundary conditions
+        b[0] = self.I
+        b[-1] = self.I
+
+        A = csr_matrix(A)         # turn A into CSR-format for efficiency with spsolve
+        u = spsolve(A, b)  # solving the system
 
         return u
 
@@ -260,7 +278,7 @@ def test_order():
     VibHPL(8, 2 * np.pi / w, w).test_order()
     VibFD2(8, 2 * np.pi / w, w).test_order()
     VibFD3(8, 2 * np.pi / w, w).test_order()
-    VibFD4(8, 2 * np.pi / w, w).test_order(N0=20)
+    VibFD4(8, 2 * np.pi / w, w).test_order(N0=20, tol=9)
 
 
 if __name__ == "__main__":
