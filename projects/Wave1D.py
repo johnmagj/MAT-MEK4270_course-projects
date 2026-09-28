@@ -59,10 +59,14 @@ class Wave1D:
         The returned matrix is not divided by dx**2
         """
         D = cast(sparse.lil_matrix, sparse.diags([1, -2, 1], [-1, 0, 1], (self.N + 1, self.N + 1), "lil"))
-        if bc == 1:  # Neumann condition is baked into stencil
+        if bc == 0:     # Dirichlet boundary condition baked into stencil
+            D[0,:] = 0.0
+            D[-1,:] = 0.0
+
+        elif bc == 1:   # Neumann condition is baked into stencil
             raise NotImplementedError("Neumann boundary condition is not implemented yet")
 
-        elif bc == 3:  # periodic (Note u[0] = u[-1])
+        elif bc == 3:   # periodic (Note u[0] = u[-1])
             raise NotImplementedError("Periodic boundary condition is not implemented yet")
 
         return D
@@ -154,13 +158,15 @@ class Wave1D:
 
         else:  # use u_t = 0 for un = u(x, dt)
             self.un[:] = self.unm1 + 0.5 * C**2 * (D @ self.unm1)
-            self.apply_bcs(bc, self.un)
+            if bc != 0:
+                self.apply_bcs(bc, self.un)
         if save_step == 1:
             plotdata[1] = self.un.copy()
 
         for n in range(2, Nt + 1):
             self.unp1[:] = 2 * self.un - self.unm1 + C**2 * (D @ self.un)
-            self.apply_bcs(bc)
+            if bc != 0:
+                self.apply_bcs(bc)
             self.unm1[:] = self.un
             self.un[:] = self.unp1
             if n % save_step == 0:  # save every save_step timestep
