@@ -164,15 +164,13 @@ class Wave1D:
 
         else:  # use u_t = 0 for un = u(x, dt)
             self.un[:] = self.unm1 + 0.5 * C**2 * (D @ self.unm1)
-            if bc != 0:
-                self.apply_bcs(bc, self.un)
+            self.apply_bcs(bc, self.un)
         if save_step == 1:
             plotdata[1] = self.un.copy()
 
         for n in range(2, Nt + 1):
             self.unp1[:] = 2 * self.un - self.unm1 + C**2 * (D @ self.un)
-            if bc != 0 and bc != 1:
-                self.apply_bcs(bc)
+            self.apply_bcs(bc)
             self.unm1[:] = self.un
             self.un[:] = self.unp1
             if n % save_step == 0:  # save every save_step timestep
