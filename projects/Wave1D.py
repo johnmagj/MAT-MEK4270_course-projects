@@ -64,7 +64,13 @@ class Wave1D:
             D[-1,:] = 0.0
 
         elif bc == 1:   # Neumann condition is baked into stencil
-            raise NotImplementedError("Neumann boundary condition is not implemented yet")
+            D[0,0] = -2.0
+            D[0,1] = 2.0
+            D[0,2:] = 0.0
+
+            D[-1,-1] = -2.0
+            D[-1,-2] = 2.0
+            D[-1, -3::-1] = 0.0
 
         elif bc == 3:   # periodic (Note u[0] = u[-1])
             raise NotImplementedError("Periodic boundary condition is not implemented yet")
@@ -165,7 +171,7 @@ class Wave1D:
 
         for n in range(2, Nt + 1):
             self.unp1[:] = 2 * self.un - self.unm1 + C**2 * (D @ self.un)
-            if bc != 0:
+            if bc != 0 and bc != 1:
                 self.apply_bcs(bc)
             self.unm1[:] = self.un
             self.un[:] = self.unp1
