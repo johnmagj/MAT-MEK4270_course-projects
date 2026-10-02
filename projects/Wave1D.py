@@ -73,7 +73,10 @@ class Wave1D:
             D[-1, -3::-1] = 0.0
 
         elif bc == 3:   # periodic (Note u[0] = u[-1])
-            raise NotImplementedError("Periodic boundary condition is not implemented yet")
+            D[0,:] = 0.0
+            D[0,0] = -2.0
+            D[0,1] = 1.0
+            D[0,-2] = 1.0
 
         return D
 
@@ -102,10 +105,13 @@ class Wave1D:
             pass
 
         elif bc == 2:  # Open boundary
-            raise NotImplementedError("Open boundary condition is not implemented yet")
+            C = self.cfl
+            
+            u[0] = 2*(1 - C)*self.un[0] - ((1 - C)/(1 + C))*self.unm1[0] + ((2*C**2)/(1 + C))*self.unm1[1]
+            u[-1] = 2*(1 - C)*self.un[-1] - ((1 - C)/(1 + C))*self.unm1[-1] + ((2*C**2)/(1 + C))*self.unm1[-2]
 
         elif bc == 3:
-            raise NotImplementedError("Periodic boundary condition is not implemented yet")
+            u[-1] = u[0]
 
         else:
             raise RuntimeError(f"Wrong bc = {bc}")
